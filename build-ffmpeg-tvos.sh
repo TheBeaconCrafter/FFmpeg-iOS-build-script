@@ -137,20 +137,37 @@ fi
 
 if [ "$LIPO" ]
 then
-	echo "building fat binaries..."
-	mkdir -p $FAT/lib
-	set - $ARCHS
-	CWD=`pwd`
-	cd $THIN/$1/lib
-	for LIB in *.a
-	do
-		cd $CWD
-		echo lipo -create `find $THIN -name $LIB` -output $FAT/lib/$LIB 1>&2
-		lipo -create `find $THIN -name $LIB` -output $FAT/lib/$LIB || exit 1
-	done
+    echo "creating device + simulator outputs (no mixed lipo)..."
 
-	cd $CWD
-	cp -rf $THIN/$1/include $FAT
+    DEVICE_OUT="FFmpeg-tvOS"
+    SIM_OUT="FFmpeg-tvOS-sim"
+
+    mkdir -p "$DEVICE_OUT/lib" "$SIM_OUT/lib"
+
+    # pick a reference include dir from device build
+    set - $ARCHS
+    CWD=`pwd`
+    FIRST_ARCH="$1"
+
+    # copy headers (same headers for device + sim)
+    cp -rf "$THIN/$FIRST_ARCH/include" "$DEVICE_OUT" || exit 1
+    cp -rf "$THIN/$FIRST_ARCH/include" "$SIM_OUT" || exit 1
+
+    # device libs: copy as-is (arm64 device)
+    for LIB in "$THIN/arm64/lib/"*.a
+    do
+        cp -f "$LIB" "$DEVICE_OUT/lib/" || exit 1
+    done
+
+    # simulator libs: lipo arm64-sim + x86_64 into one sim-fat lib
+    for LIB in "$THIN/arm64-sim/lib/"*.a
+    do
+        NAME=`basename "$LIB"`
+        echo lipo -create "$THIN/arm64-sim/lib/$NAME" "$THIN/x86_64/lib/$NAME" -output "$SIM_OUT/lib/$NAME" 1>&2
+        lipo -create "$THIN/arm64-sim/lib/$NAME" "$THIN/x86_64/lib/$NAME" -output "$SIM_OUT/lib/$NAME" || exit 1
+    done
 fi
 
-echo Done
+echo "Done"
+echo "Device libs: $DEVICE_OUT"
+echo "Simulator libs: $SIM_OUT"
