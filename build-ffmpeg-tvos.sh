@@ -70,15 +70,15 @@ then
 	then
 		echo 'gas-preprocessor.pl not found. Trying to install...'
 		(curl -L https://github.com/libav/gas-preprocessor/raw/master/gas-preprocessor.pl \
-			-o /usr/local/bin/gas-preprocessor.pl \
-			&& chmod +x /usr/local/bin/gas-preprocessor.pl) \
+			-o $HOME/bin/gas-preprocessor.pl \
+			&& chmod +x $HOME/bin/gas-preprocessor.pl) \
 			|| exit 1
 	fi
 
 	if [ ! -r $SOURCE ]
 	then
 		echo 'FFmpeg source not found. Trying to download...'
-		curl http://www.ffmpeg.org/releases/$SOURCE.tar.bz2 | tar xj \
+		curl -L https://ffmpeg.org/releases/$SOURCE.tar.bz2 | tar xj \
 			|| exit 1
 	fi
 
