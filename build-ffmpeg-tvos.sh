@@ -29,7 +29,7 @@ fi
 # avresample
 #CONFIGURE_FLAGS="$CONFIGURE_FLAGS --enable-avresample"
 
-ARCHS="arm64 x86_64"
+ARCHS="arm64 arm64-sim"
 
 COMPILE="y"
 LIPO="y"
@@ -89,18 +89,18 @@ then
 		mkdir -p "$SCRATCH/$ARCH"
 		cd "$SCRATCH/$ARCH"
 
-		CFLAGS="-arch $ARCH"
-		if [ "$ARCH" = "x86_64" ]
+		EXPORT=
+		if [ "$ARCH" = "arm64-sim" ]
 		then
-		    PLATFORM="AppleTVSimulator"
-		    CFLAGS="$CFLAGS -mtvos-simulator-version-min=$DEPLOYMENT_TARGET"
+    			# Simulator (Apple Silicon)
+    			PLATFORM="AppleTVSimulator"
+    			CFLAGS="-arch arm64 -mtvos-simulator-version-min=$DEPLOYMENT_TARGET"
+    			ARCH="arm64"
 		else
-		    PLATFORM="AppleTVOS"
-		    CFLAGS="$CFLAGS -mtvos-version-min=$DEPLOYMENT_TARGET -fembed-bitcode"
-		    if [ "$ARCH" = "arm64" ]
-		    then
-		        EXPORT="GASPP_FIX_XCODE5=1"
-		    fi
+    			# Device
+    			PLATFORM="AppleTVOS"
+    			CFLAGS="-arch $ARCH -mtvos-version-min=$DEPLOYMENT_TARGET -fembed-bitcode"
+    			EXPORT="GASPP_FIX_XCODE5=1"
 		fi
 
 		XCRUN_SDK=`echo $PLATFORM | tr '[:upper:]' '[:lower:]'`
