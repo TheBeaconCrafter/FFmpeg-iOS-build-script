@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # directories
-SOURCE="ffmpeg-3.1.1"
+SOURCE="${SOURCE:-ffmpeg-${FFMPEG_VERSION:-3.4}}"
 FAT="FFmpeg-tvOS"
 
 SCRATCH="scratch-tvos"
@@ -14,7 +14,8 @@ THIN=`pwd`/"thin-tvos"
 #FDK_AAC=`pwd`/fdk-aac/fdk-aac-ios
 
 CONFIGURE_FLAGS="--enable-cross-compile --disable-debug --disable-programs \
-                 --disable-doc --enable-pic --disable-indev=avfoundation"
+                 --disable-doc --enable-pic --disable-indev=avfoundation \
+                 --disable-asm"
 
 if [ "$X264" ]
 then
@@ -83,11 +84,12 @@ then
 	fi
 
 	CWD=`pwd`
-	for ARCH in $ARCHS
-	do
-		echo "building $ARCH..."
-		mkdir -p "$SCRATCH/$ARCH"
-		cd "$SCRATCH/$ARCH"
+		for ARCH in $ARCHS
+		do
+			echo "building $ARCH..."
+			mkdir -p "$SCRATCH/$ARCH"
+			cd "$SCRATCH/$ARCH"
+			ln -snf "$CWD/$SOURCE" src
 
 		EXPORT=
 		if [ "$ARCH" = "arm64-sim" ]
@@ -159,12 +161,35 @@ then
         cp -f "$LIB" "$DEVICE_OUT/lib/" || exit 1
     done
 
-    # simulator libs: lipo arm64-sim + x86_64 into one sim-fat lib
-    for LIB in "$THIN/arm64-sim/lib/"*.a
+    # simulator libs: use whichever simulator slices are available.
+    # Newer Apple Silicon-only environments often build arm64-sim only.
+    REF_SIM_ARCH=
+    if [ -d "$THIN/arm64-sim/lib" ]; then
+        REF_SIM_ARCH="arm64-sim"
+    elif [ -d "$THIN/x86_64/lib" ]; then
+        REF_SIM_ARCH="x86_64"
+    else
+        echo "No simulator libraries were produced in $THIN (expected arm64-sim and/or x86_64)."
+        exit 1
+    fi
+
+    for LIB in "$THIN/$REF_SIM_ARCH/lib/"*.a
     do
         NAME=`basename "$LIB"`
-        echo lipo -create "$THIN/arm64-sim/lib/$NAME" "$THIN/x86_64/lib/$NAME" -output "$SIM_OUT/lib/$NAME" 1>&2
-        lipo -create "$THIN/arm64-sim/lib/$NAME" "$THIN/x86_64/lib/$NAME" -output "$SIM_OUT/lib/$NAME" || exit 1
+        ARM64_SIM_LIB="$THIN/arm64-sim/lib/$NAME"
+        X86_SIM_LIB="$THIN/x86_64/lib/$NAME"
+
+        if [ -f "$ARM64_SIM_LIB" ] && [ -f "$X86_SIM_LIB" ]; then
+            echo lipo -create "$ARM64_SIM_LIB" "$X86_SIM_LIB" -output "$SIM_OUT/lib/$NAME" 1>&2
+            lipo -create "$ARM64_SIM_LIB" "$X86_SIM_LIB" -output "$SIM_OUT/lib/$NAME" || exit 1
+        elif [ -f "$ARM64_SIM_LIB" ]; then
+            cp -f "$ARM64_SIM_LIB" "$SIM_OUT/lib/$NAME" || exit 1
+        elif [ -f "$X86_SIM_LIB" ]; then
+            cp -f "$X86_SIM_LIB" "$SIM_OUT/lib/$NAME" || exit 1
+        else
+            echo "Missing simulator library slices for $NAME"
+            exit 1
+        fi
     done
 fi
 
