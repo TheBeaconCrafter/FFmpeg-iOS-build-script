@@ -5,3 +5,4 @@ FFmpeg.framework
 FFmpeg-*
 .DS_Store
 FFmpegTVOS-SPM/*
+FFmpegMacOS-SPM/*
